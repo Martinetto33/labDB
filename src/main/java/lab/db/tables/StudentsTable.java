@@ -7,12 +7,15 @@ package lab.db.tables;
  import java.sql.SQLException;
  import java.sql.SQLIntegrityConstraintViolationException;
  import java.util.ArrayList;
- import java.util.Date;
+import java.util.Collections;
+import java.util.Date;
  import java.util.List;
  import java.util.Objects;
  import java.util.Optional;
 
- import lab.utils.Utils;
+import com.google.protobuf.Option;
+
+import lab.utils.Utils;
  import lab.db.Table;
  import lab.model.Student;
 
@@ -62,7 +65,11 @@ package lab.db.tables;
              * PreparedStatments.
              */
             final ResultSet resultSet = statement.executeQuery(
-                "SELECT * FROM " + TABLE_NAME + "WHERE id = " + id
+                "SELECT * FROM " + TABLE_NAME + " WHERE id = " + id 
+                /* Ensure to leave spaces around words whent concatenating strings like this,
+                 * otherwise there's the risk to create something that the SQL manager can't execute
+                 * like 'STUDENTSWHERE id ='
+                 */
             );
             return readStudentsFromResultSet(resultSet).stream().findFirst();
         } catch (final SQLException e) {
@@ -100,12 +107,30 @@ package lab.db.tables;
          // Helpful resources:
          // https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html
          // https://docs.oracle.com/javase/tutorial/jdbc/basics/retrieving.html
-         throw new UnsupportedOperationException("TODO");
+         final List<Student> result = new ArrayList<>();
+         try {
+            while (resultSet.next()) {
+                final var id = resultSet.getInt("id");
+                final var firstName = resultSet.getString("firstName");
+                final var lastName = resultSet.getString("lastName");
+                final var date = Utils.sqlDateToDate(resultSet.getDate("birthday")); // this is needed because 'getDate()' returns a SQL.Date while we need a java.Date
+                result.add(new Student(id, firstName, lastName, Optional.ofNullable(date)));
+             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+         return result;
      }
 
      @Override
      public List<Student> findAll() {
-         throw new UnsupportedOperationException("TODO");
+        final var query = "SELECT * FROM " + TABLE_NAME;
+        try (final Statement statement = connection.createStatement()) {
+            return this.readStudentsFromResultSet(statement.executeQuery(query));
+        } catch (final SQLException e) {
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
      }
 
      public List<Student> findByBirthday(final Date date) {
