@@ -38,8 +38,8 @@ package lab.db.tables;
              statement.executeUpdate(
                  "CREATE TABLE " + TABLE_NAME + " (" +
                          "id INT NOT NULL PRIMARY KEY," +
-                         "firstName CHAR(40)," + 
-                         "lastName CHAR(40)," + 
+                         "firstName CHAR(40) NOT NULL," + 
+                         "lastName CHAR(40), NOT NULL" + 
                          "birthday DATE" + 
                      ")");
              return true;
@@ -51,7 +51,36 @@ package lab.db.tables;
 
      @Override
      public Optional<Student> findByPrimaryKey(final Integer id) {
-         throw new UnsupportedOperationException("TODO");
+        /* Statement is a resource; it means it has to be opened and closed, that's why
+         * we use a try-with-resources.
+         */
+        try (final Statement statement = this.connection.createStatement()) {
+            /* This implementation is very  unsafe and SHOULD NEVER BE USED!
+             * The external parameter "id" in fact may contain malevolent code,
+             * like a "DROP TABLE" query, that our database would execute to its death.
+             * This kind of attacks are called "SQL injections". They can be stopped with
+             * PreparedStatments.
+             */
+            final ResultSet resultSet = statement.executeQuery(
+                "SELECT * FROM " + TABLE_NAME + "WHERE id = " + id
+            );
+            return readStudentsFromResultSet(resultSet).stream().findFirst();
+        } catch (final SQLException e) {
+            return Optional.empty();
+        }
+
+        /*
+         * TO AVOID SQL-INJECTIONS
+         * 
+         * final var query = "SELECT * FROM " + TABLE_NAME + " WHERE id = ?";
+         * try (final PreparedStatement statement = this.connection.prepareStatement(query)) {
+         *      statement.setInt(1, id) // replaces the first occurrence of '?' in query with the integer value of id; this way no malevolent code stored in id's "toString" can be executed
+         *      final ResultSet = statement.executeQuery();
+         *      return readStudentsFromResultSet(resultSet).stream().findFirst();
+         * } catch (final SQLException e) {
+         *      return Optional.empty();
+         * }
+         */
      }
 
      /**
